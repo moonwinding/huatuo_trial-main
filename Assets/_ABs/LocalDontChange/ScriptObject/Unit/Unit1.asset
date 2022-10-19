@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 73cb94444f5d0e8428de48fd83a81466, type: 3}
+  m_Name: Unit1
+  m_EditorClassIdentifier: 
+  attributeSetter: {fileID: 11400000, guid: 519b0f115deba064da0e1d65516cab4f, type: 2}
+  stateSetter: {fileID: 11400000, guid: 3c36d01282586d246a8e90d68ec5f9d1, type: 2}
+  aiPathSetter: {fileID: 0}
+  dropSetter: {fileID: 11400000, guid: 08d0add4a13200b45b25a851c0e51307, type: 2}
+  skillSetters:
+  - {fileID: 11400000, guid: 3ee9918d1906c5f48bfbb35298b518ee, type: 2}
+  aiPolicyType: 3
+  agentType: 1
+  bornPos: {x: 0, y: 0, z: 0}

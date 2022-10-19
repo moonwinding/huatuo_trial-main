@@ -1,0 +1,6 @@
+{
+	"Version": "1.0.0",
+	"ResServerUrl": "https://192.168.1.27:8080",
+	"UseResServer": true,
+	"IsDebug": true
+}

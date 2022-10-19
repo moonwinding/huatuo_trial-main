@@ -1,0 +1,16 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dc20f22a283515348acafc0c9a913f02, type: 3}
+  m_Name: EquipBag
+  m_EditorClassIdentifier: 
+  equipSetters:
+  - {fileID: 11400000, guid: 255bb10ec2b40ba48a34a910ec54aa23, type: 2}

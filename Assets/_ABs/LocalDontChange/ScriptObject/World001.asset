@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1bbc8ce62b663474689fad5137688794, type: 3}
+  m_Name: World001
+  m_EditorClassIdentifier: 
+  playerDataSetter: {fileID: 11400000, guid: 6655ac8499790404f82233c1ad07edd0, type: 2}
+  playerUnitSetter: {fileID: 11400000, guid: f5c6b28582e77684fa783373075e18c0, type: 2}
+  thingsSetter: {fileID: 11400000, guid: fc04868958eb11e4abf1c21fbc225151, type: 2}
+  unitSetters:
+  - {fileID: 11400000, guid: f5c6b28582e77684fa783373075e18c0, type: 2}
