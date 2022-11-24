@@ -1,144 +1,197 @@
 using NaughtyAttributes;
+using SRF;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEditorInternal;
 using UnityEngine;
 using UnityEngine.UI;
+using ZFrameWork;
 
+[System.Serializable]
+public class UILoopCellGrid
+{
+    public bool UseDynimcSize = false;          //动态大小,使用元素自己的大小进行更新
+    public bool needTypeReset = false;          //当前一个类型和本类型不一样的或需要进行重置处理
+    public Vector3 resetOffset = Vector3.zero;  //进行重置的位置操作
+    public Vector3 mainOffset = Vector3.right;  //主要便宜的偏移量
+    public int MainOffCount = -1;               //主偏移多少次进行一次次偏移
+    public Vector3 subOffPos = Vector3.down;    //次偏移量
+}
 public class UILoopList : MonoBehaviour
 {
-    public GameObject cell;
-    public int TestCount = 20;
-    private IList m_Datas;
-    private ScrollRect m_ScrollRect;
-    private GridLayoutGroup group;
-    private System.Action<GameObject, object> updateItemFunc;
+    public List<GameObject> models = new List<GameObject>();                //用来进行显示的模板标准列表
+    public List<UILoopCellGrid> modelGrids = new List<UILoopCellGrid>();    //每个模型的排序设置列表
+
+    public RectTransform minCellRect;
+    public bool isUseChildHeight = false;                                   //使用子物体自己的高度
+    public bool NeedAutoSetChildWidth = false;                              //跟据显示区域的大小来设置子物体的宽度
+    public float ExScrollHeight = 0f;
+    public float ExScrollWidth = 0f;
+    public Vector2 ScrollOffset = Vector2.zero;
+    public Vector3 startPos;
+    public int setMaxShowCount = 0;
+
+    private bool needDynamicSetSize = true;
+    private List<int> cellTypes = new List<int>();
+    private List<object> cellDatas = new List<object>();
+    private ScrollRect mScrollRect;
+
+    private LayoutGroup mLayoutGroup;
+    private GridLayoutGroup gridGroup;
+    private VerticalLayoutGroup verGroup;
+    private HorizontalLayoutGroup horGroup;
+
+    private System.Action<GameObject, object, int, int> updateItemFunc;
+    private System.Action<GameObject, object, int, int, System.Action<float>> preSizeFunc;
+    public bool needPreSize = false;//需要预先计算元素的大小
     private RectTransform showRect;
     private Rect showWorldRect;
 
-    private int showR;
-    private int showC;
-    private int allR;
-    private int allC;
+    private int showR, showC, allR, allC = 1;
+    private int showCount,allDataCount;
+    private float totalHeight;
 
-    private int showCount;
-    private int allDataCount;
-    private List<GameObject> freeGos = new List<GameObject>();
-    private List<GameObject> allGos = new List<GameObject>();
-    private List<Cell> cells = new List<Cell>();
-    private List<Cell> removeCells = new List<Cell>();
+    private Dictionary<int, List<GameObject>> fressGos = new Dictionary<int, List<GameObject>>();
+    private Dictionary<int, List<GameObject>> allGos = new Dictionary<int, List<GameObject>>();
+    private List<UILoopCell> cells = new List<UILoopCell>();
+
     private GameObject hideRoot;
     private RectTransform conent;
-    //private bool IsOnDrag = false;
-    void Awake()
+
+    private bool isAwake = false;
+    private Vector2 oriScrPos = Vector3.zero;
+    private bool canForceUpdate = false;
+    private bool updateAllcell = false;
+
+    private Vector3 nextCellPos;
+    private int nextCellType = -1;
+    private int nextOffCount = 0;
+    private string hideRootName = "HideRoot";
+
+    private void Awake()
     {
-        m_ScrollRect = GetComponentInParent<ScrollRect>();
-        showRect = m_ScrollRect.gameObject.GetComponent<RectTransform>();
+        if (isAwake) return;isAwake = true;
+        mScrollRect = GetComponentInParent<ScrollRect>();
+        showRect = mScrollRect.gameObject.GetComponent<RectTransform>();
         conent = this.gameObject.GetComponent<RectTransform>();
-        showWorldRect = showRect.WorldRect();
-        group = GetComponent<GridLayoutGroup>();
-        if (hideRoot == null)
-            hideRoot = new GameObject("Hide");
-        hideRoot.transform.SetParent(showRect.transform);
-       // m_ScrollRect.onValueChanged.RemoveAllListeners();
-        //m_ScrollRect.onValueChanged.AddListener(OnValueChange) ;
+        GetShowWorldRect();
+        mLayoutGroup = GetComponent<LayoutGroup>();
+        gridGroup = mLayoutGroup as GridLayoutGroup;
+        verGroup = mLayoutGroup as VerticalLayoutGroup;
+        horGroup = mLayoutGroup as HorizontalLayoutGroup;
+        InitHideRoot();
     }
-    private void OnValueChange(Vector2 Pos)
-    {
-        UpdateShow();
-    }
-    public void SetData(List<object> pDatas,System.Action<GameObject,object> pUpdateFunc) {
-        m_Datas = pDatas;
-        updateItemFunc = pUpdateFunc;
-        allDataCount = pDatas.Count;
-        if (group.constraint == GridLayoutGroup.Constraint.FixedColumnCount){
-            allC = group.constraintCount;
-            showC = allC;
-            allR = Mathf.FloorToInt(allDataCount / allC);
-            showR = Mathf.FloorToInt(showRect.rect.height / (group.cellSize.y + group.spacing.y)) + 2;
-            conent.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, allR * group.cellSize.y);
-        }
-        else {
-            allR = group.constraintCount;
-            showR = allR;
-            allC = Mathf.FloorToInt(allDataCount / allR);
-            showC = Mathf.FloorToInt(showRect.rect.width / (group.cellSize.x + group.spacing.x)) + 2;
-            conent.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, allC * group.cellSize.x);
-        }
-        showCount = showR * showC;
-        if (showCount > allGos.Count) {
-            for (var i = allGos.Count; i < showCount; i++) {
-                var go = GameObject.Instantiate<GameObject>(cell);
-                go.name = "DataCell" +(i + 1);
-                allGos.Add(go);
-                freeGos.Add(go);
+    private void InitHideRoot() {
+        if (hideRoot == null) {
+            var findHideRoot = showRect.Find(hideRootName);
+            if (findHideRoot != null){
+                hideRoot = findHideRoot.gameObject;
+            }
+            else {
+                hideRoot = new GameObject(hideRootName);
+                hideRoot.transform.SetParent(showRect.transform);
             }
         }
+    }
+    private void GetShowWorldRect() {
+        showWorldRect = showRect.WorldRectEx();
+        //对真实的显示区域进行一定的计算调整
+        showWorldRect.height += ExScrollHeight;
+        showWorldRect.width += ExScrollWidth;
+        showWorldRect.position += ScrollOffset;
+    }
 
-        if (allDataCount > cells.Count)
+    private void OnEnable(){
+        GetShowWorldRect();
+    }
+    public UILoopCellGrid GetCellGrid(int pCellType) {
+        return modelGrids[pCellType];
+    }
+    private bool IsDynamicModel(int pCellType) { 
+        var grid = GetCellGrid(pCellType);
+        return grid.UseDynimcSize;
+    }
+    private void InitGridInfo() {
+        if (gridGroup != null)
         {
-            for (var i = cells.Count; i < allDataCount; i++)
+            if (gridGroup.constraint == GridLayoutGroup.Constraint.FixedColumnCount)
             {
-                var root = new GameObject("Cell" + (i + 1));
-                root.transform.SetParent(this.transform);
-                var rootRect = root.AddComponent<RectTransform>();
-                var cell = new Cell(rootRect, showWorldRect, hideRoot, m_Datas[i],
-                    updateItemFunc);
+                allC = gridGroup.constraintCount;
+                showC = allC;
+                allR = Mathf.FloorToInt(allDataCount / allC);
+                showR = Mathf.FloorToInt(showRect.rect.height / (gridGroup.cellSize.y + gridGroup.spacing.y)) + 2;
+            }
+            else
+            {
+                allR = gridGroup.constraintCount;
+                showR = allR;
+                allC = Mathf.FloorToInt(allDataCount / allR);
+                showC = Mathf.FloorToInt(showRect.rect.width / (gridGroup.cellSize.x + gridGroup.spacing.x)) + 2;
+            }
+        }
+        else if (verGroup != null)
+        {
+            allC = 1;
+            showC = allC;
+            allR = Mathf.FloorToInt(allDataCount / allC);
+            showR = Mathf.FloorToInt(showRect.rect.height / (minCellRect.sizeDelta.y + verGroup.spacing)) + 2;
+        }
+        else if (horGroup != null) {
+            allR = 1;
+            showR = allR;
+            allC = Mathf.FloorToInt(allDataCount / allR);
+            showC = Mathf.FloorToInt(showRect.rect.width / (minCellRect.sizeDelta.x + horGroup.spacing)) + 2;
+        }
+        showCount = showR * showC;
+        if (setMaxShowCount > 0) {
+            showCount = setMaxShowCount;
+        }
+        if (allDataCount > cells.Count) {
+            for (var i = cells.Count; i < allDataCount; i++) {
+                var rootTransform = this.transform as RectTransform;
+                var cell = new UILoopCell(rootTransform, showWorldRect, hideRoot, cellDatas[i], updateItemFunc, i);
+                cell.SetNeedSetChildWidth(NeedAutoSetChildWidth);
                 cells.Add(cell);
             }
         }
-        else if (allDataCount < cells.Count)
-        {
-            removeCells.Clear();
-            for (var i = allDataCount; i < cells.Count; i++)
-            {
-                var cell = cells[i];
-                var go = cell.OnHide();
-                if(go != null)
-                    freeGos.Add(go);
-                removeCells.Add(cell);
-            }
-            for (var i = 0; i < removeCells.Count; i++) {
-                var cell = removeCells[i];
-                GameObject.Destroy(cell.rootRect.gameObject);
-                cells.Remove(cell);
-            }
-        }
-        UpdateShow();
-        needSetData = true;
-    }
-
-    private void UpdateShow() {
-        needSetData = false;
-        for (var i = 0; i < cells.Count; i++) {
-            var cell = cells[i];
-            if (cell.NeedShow())
-            {
-                if (!cell.IsShow)
-                {
-                    if (freeGos.Count > 0) {
-                        cell.OnShow(freeGos[0]);
-                        freeGos.RemoveAt(0);
+        else if (allDataCount < cells.Count) { 
+            var totalCellCount = cells.Count;
+            for(var i= allDataCount;i< totalCellCount; i++) {
+                var cellTemp = cells[cells.Count - 1];
+                var go = cellTemp.OnHide();
+                if (go != null) {
+                    var cellType = cellTemp.GetCellType();
+                    if (fressGos.TryGetValue(cellType, out List<GameObject> oFreeGos)) {
+                        oFreeGos.Add(go);
                     }
                 }
+                cells.RemoveAt(cells.Count - 1);
             }
-            else {
-                if (cell.IsShow)
+        }
+        for (var i = 0; i < cells.Count; i++) {
+            var cellTemp = cells[i];
+            var go = cellTemp.OnHide();
+            if (go != null) {
+                var cellType = cellTemp.GetCellType();
+                if (fressGos.TryGetValue(cellType, out List<GameObject> oFreeGos))
                 {
-                    var go = cell.OnHide();
-                    freeGos.Add(go);
+                    oFreeGos.Add(go);
                 }
             }
         }
+        nextCellPos = startPos;
+        nextOffCount = 0;
+        nextCellType = -1;
+        totalHeight = 0;
+        float startY = 0;
+        float endY = 0;
+        for (var i = 0; i < cells.Count; i++)
+        { 
+            
+        }
     }
 
-    private bool needSetData = false;
-    void Update()
-    {
-        //if (!needSetData)
-        //    return;
-        UpdateShow();
-    }
-
+    public int TestCount = 20;
 #if UNITY_EDITOR
     [Button("测试组件")]
     private void Test()
@@ -147,69 +200,11 @@ public class UILoopList : MonoBehaviour
         for (var i = 0; i < TestCount; i++){
             datas.Add(i);
         }
-        SetData(datas, (oGo, oData) =>
-        {
-            //Debug.LogError("oGo" + oGo.name);
-            //Debug.LogError("oData" + oData.ToString());
-        });
+        //SetData(datas, (oGo, oData) =>
+        //{
+        //    //Debug.LogError("oGo" + oGo.name);
+        //    //Debug.LogError("oData" + oData.ToString());
+        //});
     }
 #endif
-}
-public class Cell {
-    private GameObject cell;
-    private Rect maskWorldRect;
-    public RectTransform rootRect;
-    private GameObject hideRoot;
-    private object data;
-    private System.Action<GameObject,object> setFunc;
-    public bool IsShow = false;
-    public Cell(RectTransform pRootRect, Rect pMaskWorldRect,GameObject pHideRoot,object pData, 
-        System.Action<GameObject, object> pSetFunc) {
-        rootRect = pRootRect;
-        hideRoot = pHideRoot;
-        data = pData;
-        setFunc = pSetFunc;
-        maskWorldRect = pMaskWorldRect;
-    }
-    public bool NeedShow() {
-        return maskWorldRect.Overlaps(rootRect.WorldRect(),true);
-    }
-    public void OnShow(GameObject pCell) {
-        if (IsShow)
-            return;
-        IsShow = true;
-        cell = pCell;
-        cell.transform.SetParent(rootRect.transform, false);
-        cell.transform.localPosition = Vector3.zero;
-        cell.SetActive(true);
-        setFunc?.Invoke(cell, data);
-    }
-    public GameObject OnHide() {
-        if (!IsShow)
-            return null;
-        IsShow = false;
-        cell.SetActive(false);
-        cell.transform.SetParent(hideRoot.transform);
-        return cell;
-    }
-}
-
-public static class RectTransformExtensions{
-    public static bool Overlaps(this RectTransform a, RectTransform b){
-        return a.WorldRect().Overlaps(b.WorldRect());
-    }
-    public static bool Overlaps(this RectTransform a, RectTransform b, bool allowInverse){
-        return a.WorldRect().Overlaps(b.WorldRect(), allowInverse);
-    }
-    public static Rect WorldRect(this RectTransform rectTransform){
-        Vector2 sizeDelta = rectTransform.sizeDelta;
-        float rectTransformWidth = sizeDelta.x * rectTransform.lossyScale.x;
-        float rectTransformHeight = sizeDelta.y * rectTransform.lossyScale.y;
-        Vector3 position = rectTransform.position;
-        return new Rect(
-         position.x - rectTransformWidth * rectTransform.pivot.x,
-         position.y - rectTransformHeight * rectTransform.pivot.y,
-         rectTransformWidth,
-         rectTransformHeight);
-    }
 }
